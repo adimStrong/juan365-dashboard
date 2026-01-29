@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Juan365 - Statistical Analysis Dashboard | Google Ads</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Flatpickr Calendar -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
@@ -395,7 +399,7 @@
             font-weight: 600;
         }
 
-        .date-filter select {
+        .date-filter input[type="text"] {
             background: var(--secondary);
             color: var(--text);
             border: 1px solid var(--border);
@@ -404,16 +408,86 @@
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.85rem;
             cursor: pointer;
-            min-width: 160px;
+            min-width: 140px;
+            text-align: center;
         }
 
-        .date-filter select:focus {
+        .date-filter input[type="text"]:focus {
             outline: none;
             border-color: var(--accent);
         }
 
+        .date-filter input[type="text"]::placeholder {
+            color: var(--text-dim);
+        }
+
         .date-filter span {
             color: var(--text-dim);
+        }
+
+        /* Flatpickr custom styling */
+        .flatpickr-calendar {
+            background: var(--card-bg) !important;
+            border: 1px solid var(--border) !important;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
+        }
+
+        .flatpickr-calendar .flatpickr-month {
+            background: var(--secondary) !important;
+        }
+
+        .flatpickr-calendar .flatpickr-weekday {
+            color: var(--accent) !important;
+        }
+
+        .flatpickr-calendar .flatpickr-day {
+            color: var(--text) !important;
+            border-radius: 6px !important;
+        }
+
+        .flatpickr-calendar .flatpickr-day:hover {
+            background: var(--accent) !important;
+            color: var(--primary) !important;
+        }
+
+        .flatpickr-calendar .flatpickr-day.selected {
+            background: var(--success) !important;
+            border-color: var(--success) !important;
+            color: var(--primary) !important;
+        }
+
+        .flatpickr-calendar .flatpickr-day.flatpickr-disabled {
+            color: var(--border) !important;
+            text-decoration: line-through;
+            cursor: not-allowed !important;
+        }
+
+        .flatpickr-calendar .flatpickr-day.flatpickr-disabled:hover {
+            background: transparent !important;
+            color: var(--border) !important;
+        }
+
+        .flatpickr-calendar .numInputWrapper span {
+            border-color: var(--border) !important;
+        }
+
+        .flatpickr-calendar .flatpickr-months .flatpickr-prev-month,
+        .flatpickr-calendar .flatpickr-months .flatpickr-next-month {
+            fill: var(--text) !important;
+        }
+
+        .flatpickr-calendar .flatpickr-months .flatpickr-prev-month:hover,
+        .flatpickr-calendar .flatpickr-months .flatpickr-next-month:hover {
+            fill: var(--accent) !important;
+        }
+
+        .flatpickr-calendar .flatpickr-current-month input.cur-year {
+            color: var(--text) !important;
+        }
+
+        .flatpickr-calendar .flatpickr-current-month .flatpickr-monthDropdown-months {
+            background: var(--secondary) !important;
+            color: var(--text) !important;
         }
 
         .filter-btn {
@@ -487,13 +561,9 @@
             <!-- Date Filter -->
             <div class="date-filter" id="dateFilter">
                 <label>Date Range:</label>
-                <select id="startDate" onchange="applyDateFilter()">
-                    <option value="">All Dates</option>
-                </select>
+                <input type="text" id="startDate" placeholder="Start Date" readonly>
                 <span>to</span>
-                <select id="endDate" onchange="applyDateFilter()">
-                    <option value="">All Dates</option>
-                </select>
+                <input type="text" id="endDate" placeholder="End Date" readonly>
                 <button class="filter-btn" onclick="clearDateFilter()">Clear</button>
             </div>
         </div>
@@ -607,6 +677,26 @@
         let selectedStartDate = '';
         let selectedEndDate = '';
         let availableDates = [];
+        let startDatePicker = null;
+        let endDatePicker = null;
+
+        // Parse date string like "January 29, 2026" to Date object
+        function parseDisplayDate(dateStr) {
+            try {
+                return new Date(dateStr);
+            } catch {
+                return null;
+            }
+        }
+
+        // Format Date object to "January 29, 2026" format
+        function formatDisplayDate(date) {
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        }
 
         // Build API URL with date filters
         function buildApiUrl(endpoint) {
@@ -618,31 +708,73 @@
             return url;
         }
 
-        // Populate date dropdowns
-        function populateDateDropdowns(dates) {
+        // Initialize or update date pickers with available dates
+        function initializeDatePickers(dates) {
             availableDates = dates || [];
-            const startSelect = document.getElementById('startDate');
-            const endSelect = document.getElementById('endDate');
 
-            // Clear existing options except first
-            startSelect.innerHTML = '<option value="">All Dates</option>';
-            endSelect.innerHTML = '<option value="">All Dates</option>';
+            // Parse available dates to Date objects for comparison
+            const enabledDates = availableDates.map(d => parseDisplayDate(d)).filter(d => d);
 
-            // Add date options
-            availableDates.forEach(date => {
-                startSelect.innerHTML += `<option value="${date}">${date}</option>`;
-                endSelect.innerHTML += `<option value="${date}">${date}</option>`;
+            // Common config for both pickers
+            const commonConfig = {
+                dateFormat: 'F j, Y',
+                theme: 'dark',
+                disableMobile: true,
+                enable: enabledDates.length > 0 ? enabledDates : [],
+                locale: {
+                    firstDayOfWeek: 0
+                },
+                onReady: function(selectedDates, dateStr, instance) {
+                    // Add custom class for styling
+                    instance.calendarContainer.classList.add('juan365-calendar');
+                }
+            };
+
+            // Initialize Start Date Picker
+            if (startDatePicker) {
+                startDatePicker.destroy();
+            }
+            startDatePicker = flatpickr('#startDate', {
+                ...commonConfig,
+                placeholder: 'Start Date',
+                onChange: function(selectedDates, dateStr) {
+                    selectedStartDate = dateStr;
+                    // Update end date picker min date
+                    if (endDatePicker && selectedDates.length > 0) {
+                        endDatePicker.set('minDate', selectedDates[0]);
+                    }
+                    applyDateFilter();
+                }
             });
 
-            // Restore selections
-            if (selectedStartDate) startSelect.value = selectedStartDate;
-            if (selectedEndDate) endSelect.value = selectedEndDate;
+            // Initialize End Date Picker
+            if (endDatePicker) {
+                endDatePicker.destroy();
+            }
+            endDatePicker = flatpickr('#endDate', {
+                ...commonConfig,
+                placeholder: 'End Date',
+                onChange: function(selectedDates, dateStr) {
+                    selectedEndDate = dateStr;
+                    // Update start date picker max date
+                    if (startDatePicker && selectedDates.length > 0) {
+                        startDatePicker.set('maxDate', selectedDates[0]);
+                    }
+                    applyDateFilter();
+                }
+            });
+
+            // Restore previous selections if any
+            if (selectedStartDate) {
+                startDatePicker.setDate(selectedStartDate, false);
+            }
+            if (selectedEndDate) {
+                endDatePicker.setDate(selectedEndDate, false);
+            }
         }
 
         // Apply date filter
         function applyDateFilter() {
-            selectedStartDate = document.getElementById('startDate').value;
-            selectedEndDate = document.getElementById('endDate').value;
             loadDashboard();
         }
 
@@ -650,8 +782,14 @@
         function clearDateFilter() {
             selectedStartDate = '';
             selectedEndDate = '';
-            document.getElementById('startDate').value = '';
-            document.getElementById('endDate').value = '';
+            if (startDatePicker) {
+                startDatePicker.clear();
+                startDatePicker.set('maxDate', null);
+            }
+            if (endDatePicker) {
+                endDatePicker.clear();
+                endDatePicker.set('minDate', null);
+            }
             loadDashboard();
         }
 
@@ -662,9 +800,9 @@
                 if (!response.ok) throw new Error('Failed to fetch data');
                 const data = await response.json();
 
-                // Populate date dropdowns if available
+                // Initialize date pickers with available dates
                 if (data.available_dates) {
-                    populateDateDropdowns(data.available_dates);
+                    initializeDatePickers(data.available_dates);
                 }
 
                 renderMetrics(data.metrics);

@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juan365 - Statistical Analysis Dashboard | Google Ads</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+        :root {
+            --primary: #0A0E27;
+            --secondary: #1A1F3A;
+            --accent: #00E5FF;
+            --accent-warm: #FF6B35;
+            --success: #00FF88;
+            --warning: #FFB800;
+            --danger: #FF3366;
+            --text: #E8EAED;
+            --text-dim: #9AA0B0;
+            --border: #2A3048;
+            --card-bg: #14182E;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Urbanist', sans-serif;
+            background: linear-gradient(135deg, var(--primary) 0%, #0D1229 50%, var(--secondary) 100%);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container { max-width: 1800px; margin: 0 auto; }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--success) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .header .subtitle {
+            font-size: 1.1rem;
+            color: var(--text-dim);
+            font-weight: 500;
+        }
+
+        .sync-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+        }
+
+        .sync-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        .sync-dot.error { background: var(--danger); }
+        .sync-dot.loading { background: var(--warning); }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 2rem;
+        }
+
+        .metric-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent);
+            box-shadow: 0 10px 30px rgba(0, 229, 255, 0.15);
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent), var(--success));
+        }
+
+        .metric-label {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--text);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .metric-subtitle {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            margin-top: 0.25rem;
+        }
+
+        .section {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 28px;
+            background: linear-gradient(180deg, var(--accent), var(--success));
+            border-radius: 2px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 350px;
+            margin: 1.5rem 0;
+        }
+
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .comparison-box {
+            background: linear-gradient(135deg, rgba(0, 229, 255, 0.05), rgba(0, 255, 136, 0.05));
+            border: 2px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+        }
+
+        .comparison-box.winner {
+            border-color: var(--success);
+            background: linear-gradient(135deg, rgba(0, 255, 136, 0.1), rgba(0, 229, 255, 0.05));
+        }
+
+        .comparison-box.loser {
+            border-color: var(--danger);
+            background: linear-gradient(135deg, rgba(255, 51, 102, 0.1), rgba(255, 107, 53, 0.05));
+        }
+
+        .comparison-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .comparison-stat { margin-bottom: 1rem; }
+
+        .comparison-stat-label {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            margin-bottom: 0.25rem;
+        }
+
+        .comparison-stat-value {
+            font-size: 1.8rem;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .winner-badge, .loser-badge {
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+
+        .winner-badge { background: var(--success); color: var(--primary); }
+        .loser-badge { background: var(--danger); color: white; }
+
+        .stat-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-left: 0.5rem;
+        }
+
+        .stat-badge.significant {
+            background: rgba(0, 255, 136, 0.2);
+            color: var(--success);
+            border: 1px solid var(--success);
+        }
+
+        .stat-badge.large-effect {
+            background: rgba(255, 107, 53, 0.2);
+            color: var(--accent-warm);
+            border: 1px solid var(--accent-warm);
+        }
+
+        .action-plan {
+            background: linear-gradient(135deg, rgba(255, 107, 53, 0.15), rgba(255, 178, 0, 0.15));
+            border: 2px solid var(--accent-warm);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-top: 2rem;
+        }
+
+        .action-plan h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: var(--accent-warm);
+        }
+
+        .action-item {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+            padding: 1.5rem;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            border-left: 4px solid var(--accent-warm);
+        }
+
+        .action-priority {
+            background: var(--accent-warm);
+            color: var(--primary);
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+        }
+
+        .priority-number { font-size: 1.5rem; line-height: 1; }
+        .priority-label { font-size: 0.6rem; text-transform: uppercase; }
+
+        .action-content h4 {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            color: var(--text);
+        }
+
+        .action-content p {
+            color: var(--text-dim);
+            line-height: 1.6;
+            margin-bottom: 0.5rem;
+        }
+
+        .tier-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 1rem;
+        }
+
+        .tier-table th, .tier-table td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .tier-table th {
+            background: rgba(0, 229, 255, 0.1);
+            color: var(--accent);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .tier-table tbody tr:hover {
+            background: rgba(0, 229, 255, 0.05);
+        }
+
+        .tier-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .tier-1 { background: var(--success); color: var(--primary); }
+        .tier-2 { background: var(--warning); color: var(--primary); }
+        .tier-3 { background: var(--danger); color: white; }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-dim);
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .refresh-btn {
+            background: var(--accent);
+            color: var(--primary);
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-left: 1rem;
+            transition: all 0.2s;
+        }
+
+        .refresh-btn:hover {
+            background: var(--success);
+            transform: scale(1.05);
+        }
+
+        .refresh-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .date-filter {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            padding: 0.75rem 1.25rem;
+            border-radius: 12px;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .date-filter label {
+            color: var(--text-dim);
+            font-weight: 600;
+        }
+
+        .date-filter select {
+            background: var(--secondary);
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            cursor: pointer;
+            min-width: 160px;
+        }
+
+        .date-filter select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .date-filter span {
+            color: var(--text-dim);
+        }
+
+        .filter-btn {
+            background: transparent;
+            color: var(--text-dim);
+            border: 1px solid var(--border);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .filter-btn:hover {
+            background: var(--danger);
+            color: white;
+            border-color: var(--danger);
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .chart-card {
+            background: rgba(0, 229, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+        }
+
+        .chart-card h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .chart-container-small {
+            position: relative;
+            height: 280px;
+        }
+
+        @media (max-width: 768px) {
+            .comparison-grid { grid-template-columns: 1fr; }
+            .header h1 { font-size: 2rem; }
+            .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+            .charts-grid { grid-template-columns: 1fr; }
+            .date-filter {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>Juan365 Dashboard</h1>
+            <p class="subtitle">Statistical Analysis & Action Plan | Google Ads (T+1 Auto-Sync)</p>
+            <div class="sync-status">
+                <div class="sync-dot" id="syncDot"></div>
+                <span id="syncText">Loading...</span>
+                <button class="refresh-btn" id="refreshBtn" onclick="refreshData()">Refresh</button>
+            </div>
+
+            <!-- Date Filter -->
+            <div class="date-filter" id="dateFilter">
+                <label>Date Range:</label>
+                <select id="startDate" onchange="applyDateFilter()">
+                    <option value="">All Dates</option>
+                </select>
+                <span>to</span>
+                <select id="endDate" onchange="applyDateFilter()">
+                    <option value="">All Dates</option>
+                </select>
+                <button class="filter-btn" onclick="clearDateFilter()">Clear</button>
+            </div>
+        </div>
+
+        <!-- Metrics Grid -->
+        <div class="metrics-grid" id="metricsGrid">
+            <div class="loading">
+                <div class="loading-spinner"></div>
+                Loading metrics...
+            </div>
+        </div>
+
+        <!-- Statistical Analysis -->
+        <div class="section" id="statsSection">
+            <h2 class="section-title">Statistical Analysis</h2>
+            <div id="statsContent">
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    Running statistical tests...
+                </div>
+            </div>
+        </div>
+
+        <!-- Peak vs Off-Peak Comparison -->
+        <div class="section" id="comparisonSection">
+            <h2 class="section-title">Peak vs Off-Peak Performance</h2>
+            <div class="comparison-grid" id="comparisonGrid">
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    Loading comparison...
+                </div>
+            </div>
+        </div>
+
+        <!-- Hourly Chart -->
+        <div class="section">
+            <h2 class="section-title">Hourly CPFD Pattern</h2>
+            <div class="chart-container">
+                <canvas id="hourlyChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Additional Charts Grid -->
+        <div class="section">
+            <h2 class="section-title">Performance Analytics</h2>
+            <div class="charts-grid">
+                <!-- Median CPFD by Hour -->
+                <div class="chart-card">
+                    <h3>Median CPFD by Hour</h3>
+                    <div class="chart-container-small">
+                        <canvas id="medianCpfdChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Peak vs Off-Peak CPFD Distribution -->
+                <div class="chart-card">
+                    <h3>Peak vs Off-Peak CPFD</h3>
+                    <div class="chart-container-small">
+                        <canvas id="peakOffpeakChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Cost vs FTD Relationship -->
+                <div class="chart-card">
+                    <h3>Cost vs FTD Relationship</h3>
+                    <div class="chart-container-small">
+                        <canvas id="costFtdChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- FTD by Hour -->
+                <div class="chart-card">
+                    <h3>FTD Volume by Hour</h3>
+                    <div class="chart-container-small">
+                        <canvas id="ftdByHourChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tier Classification -->
+        <div class="section" id="tiersSection">
+            <h2 class="section-title">Hour Tier Classification</h2>
+            <div id="tiersContent">
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    Classifying hours...
+                </div>
+            </div>
+        </div>
+
+        <!-- Recommendations -->
+        <div class="action-plan" id="recommendationsSection">
+            <h3>Action Plan & Recommendations</h3>
+            <div id="recommendationsContent">
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    Generating recommendations...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin + '/api';
+        let hourlyChart = null;
+        let medianCpfdChart = null;
+        let peakOffpeakChart = null;
+        let costFtdChart = null;
+        let ftdByHourChart = null;
+        let selectedStartDate = '';
+        let selectedEndDate = '';
+        let availableDates = [];
+
+        // Build API URL with date filters
+        function buildApiUrl(endpoint) {
+            let url = `${API_BASE}/${endpoint}`;
+            const params = new URLSearchParams();
+            if (selectedStartDate) params.append('start_date', selectedStartDate);
+            if (selectedEndDate) params.append('end_date', selectedEndDate);
+            if (params.toString()) url += '?' + params.toString();
+            return url;
+        }
+
+        // Populate date dropdowns
+        function populateDateDropdowns(dates) {
+            availableDates = dates || [];
+            const startSelect = document.getElementById('startDate');
+            const endSelect = document.getElementById('endDate');
+
+            // Clear existing options except first
+            startSelect.innerHTML = '<option value="">All Dates</option>';
+            endSelect.innerHTML = '<option value="">All Dates</option>';
+
+            // Add date options
+            availableDates.forEach(date => {
+                startSelect.innerHTML += `<option value="${date}">${date}</option>`;
+                endSelect.innerHTML += `<option value="${date}">${date}</option>`;
+            });
+
+            // Restore selections
+            if (selectedStartDate) startSelect.value = selectedStartDate;
+            if (selectedEndDate) endSelect.value = selectedEndDate;
+        }
+
+        // Apply date filter
+        function applyDateFilter() {
+            selectedStartDate = document.getElementById('startDate').value;
+            selectedEndDate = document.getElementById('endDate').value;
+            loadDashboard();
+        }
+
+        // Clear date filter
+        function clearDateFilter() {
+            selectedStartDate = '';
+            selectedEndDate = '';
+            document.getElementById('startDate').value = '';
+            document.getElementById('endDate').value = '';
+            loadDashboard();
+        }
+
+        // Fetch all dashboard data
+        async function loadDashboard() {
+            try {
+                const response = await fetch(buildApiUrl('all'));
+                if (!response.ok) throw new Error('Failed to fetch data');
+                const data = await response.json();
+
+                // Populate date dropdowns if available
+                if (data.available_dates) {
+                    populateDateDropdowns(data.available_dates);
+                }
+
+                renderMetrics(data.metrics);
+                renderStatistics(data.statistics);
+                renderComparison(data.comparison);
+                renderHourlyChart(data.hourly_data);
+                renderMedianCpfdChart(data.hourly_data);
+                renderPeakOffpeakChart(data.comparison);
+                renderCostFtdChart(data.hourly_data);
+                renderFtdByHourChart(data.hourly_data);
+                renderTiers(data.tiers, data.hourly_data);
+                renderRecommendations(data.recommendations);
+                updateSyncStatus(data.sync_status, data.filter);
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+                document.getElementById('syncDot').classList.add('error');
+                document.getElementById('syncText').textContent = 'Error loading data';
+            }
+        }
+
+        // Render metrics cards
+        function renderMetrics(metrics) {
+            const grid = document.getElementById('metricsGrid');
+            grid.innerHTML = `
+                <div class="metric-card">
+                    <div class="metric-label">Total Spend</div>
+                    <div class="metric-value">$${(metrics.total_spend / 1000).toFixed(1)}K</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Registrations</div>
+                    <div class="metric-value">${metrics.total_registrations.toLocaleString()}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">FTDs</div>
+                    <div class="metric-value">${metrics.total_ftd.toLocaleString()}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Average CPFD</div>
+                    <div class="metric-value">$${metrics.average_cpfd.toFixed(2)}</div>
+                    <div class="metric-subtitle">Cost per FTD (USD)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Conversion Rate</div>
+                    <div class="metric-value">${metrics.average_conversion_rate.toFixed(1)}%</div>
+                    <div class="metric-subtitle">FTD / Registrations</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Data Points</div>
+                    <div class="metric-value">${metrics.data_points}</div>
+                    <div class="metric-subtitle">${metrics.date_range ? metrics.date_range.start + ' to ' + metrics.date_range.end : ''}</div>
+                </div>
+            `;
+        }
+
+        // Render statistics
+        function renderStatistics(stats) {
+            const content = document.getElementById('statsContent');
+            let html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">';
+
+            // Kruskal-Wallis
+            if (stats.kruskal_wallis) {
+                const kw = stats.kruskal_wallis;
+                html += `
+                    <div style="background: rgba(0,229,255,0.05); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border);">
+                        <h4 style="color: var(--accent); margin-bottom: 1rem;">
+                            Kruskal-Wallis H-test
+                            ${kw.is_significant ? '<span class="stat-badge significant">SIGNIFICANT</span>' : ''}
+                            ${kw.effect_interpretation === 'Large' ? '<span class="stat-badge large-effect">LARGE EFFECT</span>' : ''}
+                        </h4>
+                        <p style="color: var(--text-dim); margin-bottom: 0.5rem;">
+                            <strong>H-statistic:</strong> ${kw.statistic} |
+                            <strong>p-value:</strong> ${kw.p_value < 0.0001 ? '<0.0001' : kw.p_value.toFixed(6)}
+                        </p>
+                        <p style="color: var(--text-dim);">
+                            <strong>Confidence:</strong> ${kw.confidence_level.toFixed(2)}% |
+                            <strong>Effect Size (η²):</strong> ${kw.effect_size}
+                        </p>
+                        <p style="color: var(--success); margin-top: 0.5rem;">${kw.interpretation}</p>
+                    </div>
+                `;
+            }
+
+            // Regression
+            if (stats.regression) {
+                const reg = stats.regression;
+                html += `
+                    <div style="background: rgba(0,255,136,0.05); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border);">
+                        <h4 style="color: var(--success); margin-bottom: 1rem;">
+                            Linear Regression (Cost → FTD)
+                            ${reg.is_significant ? '<span class="stat-badge significant">SIGNIFICANT</span>' : ''}
+                        </h4>
+                        <p style="color: var(--text-dim); margin-bottom: 0.5rem;">
+                            <strong>Equation:</strong> ${reg.equation}
+                        </p>
+                        <p style="color: var(--text-dim);">
+                            <strong>R²:</strong> ${reg.r_squared} |
+                            <strong>p-value:</strong> ${reg.p_value < 0.0001 ? '<0.0001' : reg.p_value.toFixed(6)}
+                        </p>
+                        <p style="color: var(--accent); margin-top: 0.5rem;">${reg.interpretation}</p>
+                    </div>
+                `;
+            }
+
+            html += '</div>';
+
+            // Correlations
+            if (stats.correlations) {
+                html += '<h4 style="margin-top: 1.5rem; margin-bottom: 1rem; color: var(--text);">Spearman Correlations</h4>';
+                html += '<div style="display: flex; gap: 1rem; flex-wrap: wrap;">';
+                for (const [key, corr] of Object.entries(stats.correlations)) {
+                    const color = corr.rho > 0.5 ? 'var(--success)' : corr.rho > 0 ? 'var(--warning)' : 'var(--danger)';
+                    html += `
+                        <div style="background: var(--card-bg); padding: 1rem; border-radius: 8px; border: 1px solid var(--border);">
+                            <strong style="color: ${color};">ρ = ${corr.rho.toFixed(3)}</strong>
+                            <br><span style="color: var(--text-dim); font-size: 0.85rem;">${key.replace(/_/g, ' ')}</span>
+                        </div>
+                    `;
+                }
+                html += '</div>';
+            }
+
+            content.innerHTML = html;
+        }
+
+        // Render comparison
+        function renderComparison(comparison) {
+            const grid = document.getElementById('comparisonGrid');
+            grid.innerHTML = `
+                <div class="comparison-box winner">
+                    <div class="comparison-title">
+                        Peak Hours (${comparison.peak_hours.join(', ')}:00)
+                        <span class="winner-badge">WINNER</span>
+                    </div>
+                    <div class="comparison-stat">
+                        <div class="comparison-stat-label">Median CPFD</div>
+                        <div class="comparison-stat-value" style="color: var(--success);">$${comparison.peak_median_cpfd}</div>
+                    </div>
+                    <div class="comparison-stat">
+                        <div class="comparison-stat-label">Total FTDs</div>
+                        <div class="comparison-stat-value">${comparison.peak_total_ftd}</div>
+                    </div>
+                    <div class="comparison-stat">
+                        <div class="comparison-stat-label">Conversion Rate</div>
+                        <div class="comparison-stat-value">${comparison.peak_avg_conversion_rate}%</div>
+                    </div>
+                </div>
+                <div class="comparison-box loser">
+                    <div class="comparison-title">
+                        Off-Peak Hours (${comparison.offpeak_hours.join(', ')}:00)
+                        <span class="loser-badge">UNDERPERFORMING</span>
+                    </div>
+                    <div class="comparison-stat">
+                        <div class="comparison-stat-label">Median CPFD</div>
+                        <div class="comparison-stat-value" style="color: var(--danger);">$${comparison.offpeak_median_cpfd}</div>
+                    </div>
+                    <div class="comparison-stat">
+                        <div class="comparison-stat-label">Total FTDs</div>
+                        <div class="comparison-stat-value">${comparison.offpeak_total_ftd}</div>
+                    </div>
+                    <div class="comparison-stat">
+                        <div class="comparison-stat-label">Conversion Rate</div>
+                        <div class="comparison-stat-value">${comparison.offpeak_avg_conversion_rate}%</div>
+                    </div>
+                </div>
+            `;
+
+            if (comparison.cpfd_difference) {
+                grid.innerHTML += `
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 1rem; background: rgba(0,255,136,0.1); border-radius: 8px; margin-top: 1rem;">
+                        <strong style="color: var(--success); font-size: 1.2rem;">
+                            Peak hours are $${comparison.cpfd_difference.toFixed(2)} CHEAPER per FTD (${comparison.cpfd_reduction_percent}% reduction)
+                        </strong>
+                    </div>
+                `;
+            }
+        }
+
+        // Render hourly chart
+        function renderHourlyChart(hourlyData) {
+            const ctx = document.getElementById('hourlyChart').getContext('2d');
+
+            if (hourlyChart) hourlyChart.destroy();
+
+            const labels = hourlyData.map(h => h.hour_formatted);
+            const cpfdData = hourlyData.map(h => h.cpfd_median || 0);
+            const ftdData = hourlyData.map(h => h.ftd_mean || 0);
+
+            hourlyChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Median CPFD (USD)',
+                            data: cpfdData,
+                            backgroundColor: 'rgba(255, 107, 53, 0.1)',
+                            borderColor: 'rgba(255, 107, 53, 1)',
+                            borderWidth: 3,
+                            tension: 0.4,
+                            fill: true,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Average FTD',
+                            data: ftdData,
+                            backgroundColor: 'rgba(0, 255, 136, 0.1)',
+                            borderColor: 'rgba(0, 255, 136, 1)',
+                            borderWidth: 3,
+                            tension: 0.4,
+                            fill: true,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: {
+                            labels: { color: '#E8EAED', font: { family: 'Urbanist', weight: '600' } }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            position: 'left',
+                            title: { display: true, text: 'Median CPFD (USD)', color: '#FF6B35' },
+                            ticks: { color: '#9AA0B0', callback: v => '$' + v },
+                            grid: { color: 'rgba(42, 48, 72, 0.5)' }
+                        },
+                        y1: {
+                            type: 'linear',
+                            position: 'right',
+                            title: { display: true, text: 'Average FTD', color: '#00FF88' },
+                            ticks: { color: '#9AA0B0' },
+                            grid: { drawOnChartArea: false }
+                        },
+                        x: {
+                            ticks: { color: '#9AA0B0' },
+                            grid: { color: 'rgba(42, 48, 72, 0.3)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Render Median CPFD by Hour (Bar Chart)
+        function renderMedianCpfdChart(hourlyData) {
+            const ctx = document.getElementById('medianCpfdChart').getContext('2d');
+            if (medianCpfdChart) medianCpfdChart.destroy();
+
+            const labels = hourlyData.map(h => h.hour_formatted);
+            const cpfdData = hourlyData.map(h => h.cpfd_median || 0);
+
+            // Color bars based on value (lower is better)
+            const avgCpfd = cpfdData.reduce((a, b) => a + b, 0) / cpfdData.length;
+            const colors = cpfdData.map(v => v <= avgCpfd ? 'rgba(0, 255, 136, 0.8)' : 'rgba(255, 107, 53, 0.8)');
+
+            medianCpfdChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Median CPFD (USD)',
+                        data: cpfdData,
+                        backgroundColor: colors,
+                        borderColor: colors.map(c => c.replace('0.8', '1')),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'CPFD (USD)', color: '#9AA0B0' },
+                            ticks: { color: '#9AA0B0', callback: v => '$' + v },
+                            grid: { color: 'rgba(42, 48, 72, 0.5)' }
+                        },
+                        x: {
+                            ticks: { color: '#9AA0B0', maxRotation: 45 },
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Render Peak vs Off-Peak CPFD Distribution (Doughnut Chart)
+        function renderPeakOffpeakChart(comparison) {
+            const ctx = document.getElementById('peakOffpeakChart').getContext('2d');
+            if (peakOffpeakChart) peakOffpeakChart.destroy();
+
+            peakOffpeakChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Peak Hours CPFD', 'Off-Peak Hours CPFD'],
+                    datasets: [{
+                        data: [comparison.peak_median_cpfd || 0, comparison.offpeak_median_cpfd || 0],
+                        backgroundColor: ['rgba(0, 255, 136, 0.8)', 'rgba(255, 51, 102, 0.8)'],
+                        borderColor: ['rgba(0, 255, 136, 1)', 'rgba(255, 51, 102, 1)'],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '60%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#E8EAED', font: { family: 'Urbanist', size: 11 } }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': $' + context.parsed.toFixed(2);
+                                }
+                            }
+                        }
+                    }
+                },
+                plugins: [{
+                    id: 'centerText',
+                    beforeDraw: function(chart) {
+                        const width = chart.width;
+                        const height = chart.height;
+                        const ctx = chart.ctx;
+                        ctx.restore();
+
+                        const diff = (comparison.cpfd_reduction_percent || 0);
+                        ctx.font = "bold 18px 'JetBrains Mono'";
+                        ctx.textBaseline = 'middle';
+                        ctx.textAlign = 'center';
+                        ctx.fillStyle = '#00FF88';
+                        ctx.fillText('-' + diff + '%', width / 2, height / 2 - 8);
+
+                        ctx.font = "11px Urbanist";
+                        ctx.fillStyle = '#9AA0B0';
+                        ctx.fillText('Peak Savings', width / 2, height / 2 + 12);
+                        ctx.save();
+                    }
+                }]
+            });
+        }
+
+        // Render Cost vs FTD Relationship (Scatter Chart)
+        function renderCostFtdChart(hourlyData) {
+            const ctx = document.getElementById('costFtdChart').getContext('2d');
+            if (costFtdChart) costFtdChart.destroy();
+
+            const scatterData = hourlyData.map(h => ({
+                x: h.cost_mean || 0,
+                y: h.ftd_mean || 0,
+                hour: h.hour
+            }));
+
+            costFtdChart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Cost vs FTD',
+                        data: scatterData,
+                        backgroundColor: 'rgba(0, 229, 255, 0.6)',
+                        borderColor: 'rgba(0, 229, 255, 1)',
+                        borderWidth: 2,
+                        pointRadius: 6,
+                        pointHoverRadius: 9
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const h = context.raw.hour;
+                                    return `${String(h).padStart(2,'0')}:00 - Cost: $${context.parsed.x.toFixed(2)}, FTD: ${context.parsed.y.toFixed(1)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Average Cost (USD)', color: '#9AA0B0' },
+                            ticks: { color: '#9AA0B0', callback: v => '$' + v },
+                            grid: { color: 'rgba(42, 48, 72, 0.5)' }
+                        },
+                        y: {
+                            title: { display: true, text: 'Average FTD', color: '#9AA0B0' },
+                            ticks: { color: '#9AA0B0' },
+                            grid: { color: 'rgba(42, 48, 72, 0.5)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Render FTD by Hour (Bar Chart)
+        function renderFtdByHourChart(hourlyData) {
+            const ctx = document.getElementById('ftdByHourChart').getContext('2d');
+            if (ftdByHourChart) ftdByHourChart.destroy();
+
+            const labels = hourlyData.map(h => h.hour_formatted);
+            const ftdData = hourlyData.map(h => h.ftd_sum || h.ftd_mean * 29 || 0); // Use sum if available
+
+            // Color gradient from low to high
+            const maxFtd = Math.max(...ftdData);
+            const colors = ftdData.map(v => {
+                const ratio = v / maxFtd;
+                if (ratio > 0.7) return 'rgba(0, 255, 136, 0.8)';
+                if (ratio > 0.4) return 'rgba(255, 184, 0, 0.8)';
+                return 'rgba(255, 51, 102, 0.6)';
+            });
+
+            ftdByHourChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Total FTD',
+                        data: ftdData,
+                        backgroundColor: colors,
+                        borderColor: colors.map(c => c.replace(/0\.[68]/, '1')),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'FTD Count', color: '#9AA0B0' },
+                            ticks: { color: '#9AA0B0' },
+                            grid: { color: 'rgba(42, 48, 72, 0.5)' }
+                        },
+                        x: {
+                            ticks: { color: '#9AA0B0', maxRotation: 45 },
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Render tiers
+        function renderTiers(tiers, hourlyData) {
+            const content = document.getElementById('tiersContent');
+
+            // Create lookup for hourly stats
+            const hourlyLookup = {};
+            hourlyData.forEach(h => { hourlyLookup[h.hour] = h; });
+
+            let html = `
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+                    <div style="background: rgba(0,255,136,0.1); padding: 1rem; border-radius: 8px; text-align: center;">
+                        <div style="color: var(--success); font-weight: 700;">Tier 1 (Best)</div>
+                        <div style="font-size: 1.5rem; font-weight: 800;">${tiers.tier_1_budget_allocation}</div>
+                        <div style="color: var(--text-dim); font-size: 0.85rem;">Budget Allocation</div>
+                    </div>
+                    <div style="background: rgba(255,184,0,0.1); padding: 1rem; border-radius: 8px; text-align: center;">
+                        <div style="color: var(--warning); font-weight: 700;">Tier 2 (Medium)</div>
+                        <div style="font-size: 1.5rem; font-weight: 800;">${tiers.tier_2_budget_allocation}</div>
+                        <div style="color: var(--text-dim); font-size: 0.85rem;">Budget Allocation</div>
+                    </div>
+                    <div style="background: rgba(255,51,102,0.1); padding: 1rem; border-radius: 8px; text-align: center;">
+                        <div style="color: var(--danger); font-weight: 700;">Tier 3 (Reduce)</div>
+                        <div style="font-size: 1.5rem; font-weight: 800;">${tiers.tier_3_budget_allocation}</div>
+                        <div style="color: var(--text-dim); font-size: 0.85rem;">Budget Allocation</div>
+                    </div>
+                </div>
+                <table class="tier-table">
+                    <thead>
+                        <tr>
+                            <th>Hour</th>
+                            <th>Tier</th>
+                            <th>Median CPFD</th>
+                            <th>Avg FTD</th>
+                            <th>Conversion Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            // Combine all hours with their tiers
+            const allHours = [];
+            tiers.tier_1.forEach(h => allHours.push({ hour: h, tier: 1 }));
+            tiers.tier_2.forEach(h => allHours.push({ hour: h, tier: 2 }));
+            tiers.tier_3.forEach(h => allHours.push({ hour: h, tier: 3 }));
+            allHours.sort((a, b) => a.hour - b.hour);
+
+            allHours.forEach(({ hour, tier }) => {
+                const stats = hourlyLookup[hour] || {};
+                html += `
+                    <tr>
+                        <td><strong>${String(hour).padStart(2, '0')}:00</strong></td>
+                        <td><span class="tier-badge tier-${tier}">Tier ${tier}</span></td>
+                        <td>$${(stats.cpfd_median || 0).toFixed(2)}</td>
+                        <td>${(stats.ftd_mean || 0).toFixed(1)}</td>
+                        <td>${(stats.conversion_rate || 0).toFixed(1)}%</td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table>';
+            content.innerHTML = html;
+        }
+
+        // Render recommendations
+        function renderRecommendations(recommendations) {
+            const content = document.getElementById('recommendationsContent');
+
+            if (!recommendations || recommendations.length === 0) {
+                content.innerHTML = '<p style="color: var(--text-dim);">No recommendations available.</p>';
+                return;
+            }
+
+            let html = '';
+            recommendations.forEach(rec => {
+                html += `
+                    <div class="action-item">
+                        <div class="action-priority">
+                            <div class="priority-number">${rec.priority}</div>
+                            <div class="priority-label">${rec.priority_label}</div>
+                        </div>
+                        <div class="action-content">
+                            <h4>${rec.title}</h4>
+                            <p><strong>ACTION:</strong> ${rec.action}</p>
+                            <p><strong>RATIONALE:</strong> ${rec.rationale}</p>
+                        </div>
+                    </div>
+                `;
+            });
+
+            content.innerHTML = html;
+        }
+
+        // Update sync status
+        function updateSyncStatus(status, filter) {
+            const dot = document.getElementById('syncDot');
+            const text = document.getElementById('syncText');
+
+            dot.className = 'sync-dot';
+            if (status.status === 'ok') {
+                let statusText = `Last sync: ${status.last_sync_formatted || 'Just now'} | ${status.data_rows} rows`;
+                if (filter && (filter.start_date || filter.end_date)) {
+                    statusText += ' (filtered)';
+                }
+                text.textContent = statusText;
+            } else if (status.status === 'error') {
+                dot.classList.add('error');
+                text.textContent = 'Sync error';
+            } else {
+                dot.classList.add('loading');
+                text.textContent = 'No data';
+            }
+        }
+
+        // Refresh data
+        async function refreshData() {
+            const btn = document.getElementById('refreshBtn');
+            const dot = document.getElementById('syncDot');
+            const text = document.getElementById('syncText');
+
+            btn.disabled = true;
+            dot.className = 'sync-dot loading';
+            text.textContent = 'Refreshing...';
+
+            try {
+                await fetch(`${API_BASE}/refresh`, { method: 'POST' });
+                await loadDashboard();
+            } catch (error) {
+                console.error('Refresh error:', error);
+                dot.classList.add('error');
+                text.textContent = 'Refresh failed';
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', loadDashboard);
+
+        // Auto-refresh every 5 minutes
+        setInterval(loadDashboard, 5 * 60 * 1000);
+    </script>
+</body>
+</html>

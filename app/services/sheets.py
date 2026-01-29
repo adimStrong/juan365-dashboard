@@ -3,6 +3,7 @@ Google Sheets Data Service
 Fetches Google Ads data from the configured spreadsheet
 """
 import os
+import json
 import gspread
 from google.oauth2.service_account import Credentials
 from cachetools import TTLCache
@@ -34,10 +35,22 @@ class GoogleSheetsService:
         """Get or create gspread client"""
         if self._client is None:
             try:
-                creds = Credentials.from_service_account_file(
-                    self.credentials_file,
-                    scopes=SCOPES
-                )
+                # Try to get credentials from environment variable first (for Railway/cloud)
+                creds_json = os.getenv('GOOGLE_CREDENTIALS')
+                if creds_json:
+                    creds_dict = json.loads(creds_json)
+                    creds = Credentials.from_service_account_info(
+                        creds_dict,
+                        scopes=SCOPES
+                    )
+                    logger.info("Using credentials from GOOGLE_CREDENTIALS env var")
+                else:
+                    # Fall back to file for local development
+                    creds = Credentials.from_service_account_file(
+                        self.credentials_file,
+                        scopes=SCOPES
+                    )
+                    logger.info("Using credentials from file")
                 self._client = gspread.authorize(creds)
                 logger.info("Google Sheets client initialized")
             except Exception as e:

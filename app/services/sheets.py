@@ -277,14 +277,24 @@ class GoogleSheetsService:
 
         result_df = pd.DataFrame(all_records)
 
-        # Exclude incomplete days (days without hour 0/24:00 data)
+        # For FB Ads only: Exclude incomplete days (days without hour 0/24:00 data)
         # Hour 0 represents end of day (midnight), so missing hour 0 = partial day
-        if 'hour' in result_df.columns and 'date' in result_df.columns:
-            complete_dates = result_df[result_df['hour'] == 0]['date'].unique()
-            incomplete_dates = set(result_df['date'].unique()) - set(complete_dates)
-            if incomplete_dates:
-                logger.info(f"Excluding incomplete days: {incomplete_dates}")
-                result_df = result_df[result_df['date'].isin(complete_dates)]
+        # Google Ads data is already hourly, so no filtering needed
+        if 'hour' in result_df.columns and 'date' in result_df.columns and 'platform' in result_df.columns:
+            fb_mask = result_df['platform'] == 'FB Ads'
+            if fb_mask.any():
+                fb_data = result_df[fb_mask]
+                other_data = result_df[~fb_mask]
+
+                # Find complete days for FB Ads (those with hour 0 data)
+                complete_dates = fb_data[fb_data['hour'] == 0]['date'].unique()
+                incomplete_dates = set(fb_data['date'].unique()) - set(complete_dates)
+                if incomplete_dates:
+                    logger.info(f"Excluding incomplete FB Ads days: {incomplete_dates}")
+                    fb_data = fb_data[fb_data['date'].isin(complete_dates)]
+
+                # Recombine FB Ads (filtered) with other platforms (unfiltered)
+                result_df = pd.concat([fb_data, other_data], ignore_index=True)
 
         # Convert FB Ads cumulative data to actual hourly values
         result_df = self._convert_cumulative_to_hourly(result_df)

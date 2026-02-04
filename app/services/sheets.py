@@ -265,6 +265,10 @@ class GoogleSheetsService:
             return pd.DataFrame()
 
         result_df = pd.DataFrame(all_records)
+
+        # Convert FB Ads cumulative data to actual hourly values
+        result_df = self._convert_cumulative_to_hourly(result_df)
+
         logger.info(f"Processed {len(result_df)} hourly records from {len(date_columns)} dates")
         return result_df
 
@@ -279,6 +283,98 @@ class GoogleSheetsService:
             return float(clean_val)
         except:
             return 0.0
+
+    def _convert_cumulative_to_hourly(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Convert cumulative values to hourly differences for FB Ads.
+
+        FB Ads data is cumulative (each hour shows running total for the day).
+        This method converts to actual hourly values by subtracting previous hour.
+
+        Note: Hour 0 in the data represents 24:00 (midnight/end of day), not start of day.
+        Hours run chronologically: 1, 2, 3, ... 22, 23, 0 (where 0 = 24:00)
+
+        Args:
+            df: DataFrame with columns: date, hour, cost, registrations, ftd, platform
+
+        Returns:
+            DataFrame with FB Ads values converted to hourly (Google Ads unchanged)
+        """
+        if df.empty:
+            return df
+
+        # Separate FB Ads and other platforms
+        fb_mask = df['platform'] == 'FB Ads'
+        if not fb_mask.any():
+            return df  # No FB Ads data, return as-is
+
+        fb_df = df[fb_mask].copy()
+        other_df = df[~fb_mask].copy()
+
+        # Columns to convert from cumulative to hourly
+        cumulative_cols = ['cost', 'registrations', 'ftd']
+
+        # Process each date separately
+        converted_records = []
+
+        for date in fb_df['date'].unique():
+            date_data = fb_df[fb_df['date'] == date].copy()
+
+            # Sort by hour chronologically: 1,2,3...22,23,0 (where 0 = 24:00/midnight)
+            # Create sort key: hour 0 becomes 24 for sorting
+            date_data['_sort_hour'] = date_data['hour'].apply(lambda h: 24 if h == 0 else h)
+            date_data = date_data.sort_values('_sort_hour').reset_index(drop=True)
+            date_data = date_data.drop(columns=['_sort_hour'])
+
+            for idx, row in date_data.iterrows():
+                record = row.to_dict()
+
+                if idx == 0:
+                    # First hour of the day (chronologically) - keep as-is
+                    pass
+                else:
+                    # Get previous row (previous hour)
+                    prev_row = date_data.iloc[idx - 1]
+
+                    # Calculate hourly values by subtracting previous cumulative
+                    for col in cumulative_cols:
+                        current_val = row[col]
+                        prev_val = prev_row[col]
+                        hourly_val = current_val - prev_val
+
+                        # Handle negative values (could indicate data reset or error)
+                        if hourly_val < 0:
+                            logger.warning(
+                                f"Negative hourly value for {col} on {date} hour {row['hour']}: "
+                                f"{current_val} - {prev_val} = {hourly_val}"
+                            )
+
+                        record[col] = hourly_val
+
+                # Recalculate derived columns
+                cost = record['cost']
+                ftd = record['ftd']
+                registrations = record['registrations']
+
+                record['cpfd'] = cost / ftd if ftd > 0 else 0
+                record['conversion_rate'] = (ftd / registrations * 100) if registrations > 0 else 0
+
+                converted_records.append(record)
+
+        if not converted_records:
+            return other_df if not other_df.empty else df
+
+        # Create DataFrame from converted FB Ads records
+        converted_fb_df = pd.DataFrame(converted_records)
+
+        # Combine with other platforms (Google Ads stays unchanged)
+        if not other_df.empty:
+            result_df = pd.concat([converted_fb_df, other_df], ignore_index=True)
+        else:
+            result_df = converted_fb_df
+
+        logger.info(f"Converted {len(converted_records)} FB Ads records from cumulative to hourly")
+        return result_df
 
     def _process_flat_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """Fallback for flat data structure"""

@@ -1,5 +1,6 @@
 """
-Juan365 Google Ads Dashboard
+Juan365 Ads Dashboard
+FB Ads + Google Ads Combined Report
 FastAPI Backend with T+1 Auto-Sync
 """
 import os
@@ -46,9 +47,9 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app
 app = FastAPI(
-    title="Juan365 Google Ads Dashboard",
-    description="Statistical Analysis Dashboard with T+1 Auto-Sync",
-    version="1.0.0",
+    title="Juan365 Ads Dashboard",
+    description="FB Ads + Google Ads Combined Statistical Analysis Dashboard with T+1 Auto-Sync",
+    version="2.0.0",
     lifespan=lifespan
 )
 

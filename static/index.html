@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Juan365 - Statistical Analysis Dashboard | Google Ads</title>
+    <title>Juan365 - Statistical Analysis Dashboard | FB Ads + Google Ads</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Flatpickr Calendar -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
@@ -534,6 +534,121 @@
             height: 280px;
         }
 
+        /* Platform Tabs */
+        .platform-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin: 1rem 0;
+            flex-wrap: wrap;
+        }
+
+        .platform-tab {
+            background: var(--card-bg);
+            border: 2px solid var(--border);
+            color: var(--text-dim);
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .platform-tab:hover {
+            border-color: var(--accent);
+            color: var(--text);
+        }
+
+        .platform-tab.active {
+            background: linear-gradient(135deg, var(--accent), var(--success));
+            border-color: transparent;
+            color: var(--primary);
+        }
+
+        .platform-tab .platform-icon {
+            font-size: 1.1rem;
+        }
+
+        .platform-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .platform-card {
+            background: var(--card-bg);
+            border: 2px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .platform-card:hover {
+            transform: translateY(-3px);
+            border-color: var(--accent);
+        }
+
+        .platform-card.fb-ads {
+            border-left: 4px solid #1877F2;
+        }
+
+        .platform-card.google-ads {
+            border-left: 4px solid #EA4335;
+        }
+
+        .platform-card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .platform-card-header h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        .platform-card-header .fb { color: #1877F2; }
+        .platform-card-header .google { color: #EA4335; }
+
+        .platform-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .platform-stat {
+            text-align: center;
+        }
+
+        .platform-stat-value {
+            font-size: 1.3rem;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .platform-stat-label {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+        }
+
+        .share-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            background: rgba(0, 229, 255, 0.2);
+            color: var(--accent);
+            margin-left: 0.5rem;
+        }
+
         @media (max-width: 768px) {
             .comparison-grid { grid-template-columns: 1fr; }
             .header h1 { font-size: 2rem; }
@@ -543,6 +658,10 @@
                 flex-wrap: wrap;
                 justify-content: center;
             }
+            .platform-tabs {
+                flex-direction: column;
+                align-items: center;
+            }
         }
     </style>
 </head>
@@ -551,7 +670,21 @@
         <!-- Header -->
         <div class="header">
             <h1>Juan365 Dashboard</h1>
-            <p class="subtitle">Statistical Analysis & Action Plan | Google Ads (T+1 Auto-Sync)</p>
+            <p class="subtitle">Statistical Analysis & Action Plan | FB Ads + Google Ads (T+1 Auto-Sync)</p>
+
+            <!-- Platform Tabs -->
+            <div class="platform-tabs" id="platformTabs">
+                <button class="platform-tab active" data-platform="" onclick="selectPlatform('')">
+                    <span class="platform-icon">📊</span> All Platforms
+                </button>
+                <button class="platform-tab" data-platform="FB Ads" onclick="selectPlatform('FB Ads')">
+                    <span class="platform-icon">📘</span> FB Ads
+                </button>
+                <button class="platform-tab" data-platform="Google Ads" onclick="selectPlatform('Google Ads')">
+                    <span class="platform-icon">🔍</span> Google Ads
+                </button>
+            </div>
+
             <div class="sync-status">
                 <div class="sync-dot" id="syncDot"></div>
                 <span id="syncText">Loading...</span>
@@ -566,6 +699,11 @@
                 <input type="text" id="endDate" placeholder="End Date" readonly>
                 <button class="filter-btn" onclick="clearDateFilter()">Clear</button>
             </div>
+        </div>
+
+        <!-- Platform Summary (shown when All Platforms is selected) -->
+        <div class="platform-summary" id="platformSummary" style="display: none;">
+            <!-- Will be populated by JS -->
         </div>
 
         <!-- Metrics Grid -->
@@ -676,6 +814,7 @@
         let ftdByHourChart = null;
         let selectedStartDate = '';
         let selectedEndDate = '';
+        let selectedPlatform = '';  // '', 'FB Ads', or 'Google Ads'
         let availableDates = [];
         let startDatePicker = null;
         let endDatePicker = null;
@@ -698,14 +837,126 @@
             });
         }
 
-        // Build API URL with date filters
+        // Build API URL with date and platform filters
         function buildApiUrl(endpoint) {
             let url = `${API_BASE}/${endpoint}`;
             const params = new URLSearchParams();
             if (selectedStartDate) params.append('start_date', selectedStartDate);
             if (selectedEndDate) params.append('end_date', selectedEndDate);
+            if (selectedPlatform) params.append('platform', selectedPlatform);
             if (params.toString()) url += '?' + params.toString();
             return url;
+        }
+
+        // Select platform
+        function selectPlatform(platform) {
+            selectedPlatform = platform;
+
+            // Update tab styling
+            document.querySelectorAll('.platform-tab').forEach(tab => {
+                tab.classList.remove('active');
+                if (tab.dataset.platform === platform) {
+                    tab.classList.add('active');
+                }
+            });
+
+            // Show/hide platform summary
+            const summaryDiv = document.getElementById('platformSummary');
+            if (platform === '') {
+                summaryDiv.style.display = 'grid';
+            } else {
+                summaryDiv.style.display = 'none';
+            }
+
+            loadDashboard();
+        }
+
+        // Load platform summary (combined view)
+        async function loadPlatformSummary() {
+            try {
+                const response = await fetch(buildApiUrl('combined').replace('&platform=', '').replace('?platform=', '?'));
+                if (!response.ok) return;
+                const data = await response.json();
+                renderPlatformSummary(data);
+            } catch (error) {
+                console.error('Error loading platform summary:', error);
+            }
+        }
+
+        // Render platform summary cards
+        function renderPlatformSummary(data) {
+            const container = document.getElementById('platformSummary');
+            if (!data.platforms) {
+                container.innerHTML = '';
+                return;
+            }
+
+            let html = '';
+            for (const [platform, metrics] of Object.entries(data.platforms)) {
+                const platformClass = platform === 'FB Ads' ? 'fb-ads' : 'google-ads';
+                const headerClass = platform === 'FB Ads' ? 'fb' : 'google';
+                const icon = platform === 'FB Ads' ? '📘' : '🔍';
+
+                html += `
+                    <div class="platform-card ${platformClass}">
+                        <div class="platform-card-header">
+                            <span style="font-size: 1.5rem;">${icon}</span>
+                            <h3 class="${headerClass}">${platform}</h3>
+                            <span class="share-badge">${metrics.spend_share}% of spend</span>
+                        </div>
+                        <div class="platform-stats">
+                            <div class="platform-stat">
+                                <div class="platform-stat-value">$${(metrics.total_spend / 1000).toFixed(1)}K</div>
+                                <div class="platform-stat-label">Spend</div>
+                            </div>
+                            <div class="platform-stat">
+                                <div class="platform-stat-value">${metrics.total_ftd}</div>
+                                <div class="platform-stat-label">FTDs</div>
+                            </div>
+                            <div class="platform-stat">
+                                <div class="platform-stat-value">$${metrics.average_cpfd.toFixed(2)}</div>
+                                <div class="platform-stat-label">CPFD</div>
+                            </div>
+                            <div class="platform-stat">
+                                <div class="platform-stat-value">${metrics.conversion_rate.toFixed(1)}%</div>
+                                <div class="platform-stat-label">Conv. Rate</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Add combined totals card
+            if (data.combined) {
+                html += `
+                    <div class="platform-card" style="border-left: 4px solid var(--accent);">
+                        <div class="platform-card-header">
+                            <span style="font-size: 1.5rem;">📊</span>
+                            <h3 style="color: var(--accent);">Combined Total</h3>
+                        </div>
+                        <div class="platform-stats">
+                            <div class="platform-stat">
+                                <div class="platform-stat-value">$${(data.combined.total_spend / 1000).toFixed(1)}K</div>
+                                <div class="platform-stat-label">Total Spend</div>
+                            </div>
+                            <div class="platform-stat">
+                                <div class="platform-stat-value">${data.combined.total_ftd}</div>
+                                <div class="platform-stat-label">Total FTDs</div>
+                            </div>
+                            <div class="platform-stat">
+                                <div class="platform-stat-value">$${data.combined.average_cpfd.toFixed(2)}</div>
+                                <div class="platform-stat-label">Avg CPFD</div>
+                            </div>
+                            <div class="platform-stat">
+                                <div class="platform-stat-value">${data.combined.conversion_rate.toFixed(1)}%</div>
+                                <div class="platform-stat-label">Conv. Rate</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
         }
 
         // Initialize or update date pickers with available dates
@@ -805,7 +1056,15 @@
                     initializeDatePickers(data.available_dates);
                 }
 
-                renderMetrics(data.metrics);
+                // Load platform summary for combined view
+                if (selectedPlatform === '') {
+                    document.getElementById('platformSummary').style.display = 'grid';
+                    loadPlatformSummary();
+                } else {
+                    document.getElementById('platformSummary').style.display = 'none';
+                }
+
+                renderMetrics(data.metrics, selectedPlatform);
                 renderStatistics(data.statistics);
                 renderComparison(data.comparison);
                 renderHourlyChart(data.hourly_data);
@@ -824,11 +1083,12 @@
         }
 
         // Render metrics cards
-        function renderMetrics(metrics) {
+        function renderMetrics(metrics, platform) {
             const grid = document.getElementById('metricsGrid');
+            const platformLabel = platform ? ` (${platform})` : ' (All Platforms)';
             grid.innerHTML = `
                 <div class="metric-card">
-                    <div class="metric-label">Total Spend</div>
+                    <div class="metric-label">Total Spend${platformLabel}</div>
                     <div class="metric-value">$${(metrics.total_spend / 1000).toFixed(1)}K</div>
                 </div>
                 <div class="metric-card">

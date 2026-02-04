@@ -194,10 +194,11 @@ class GoogleSheetsService:
         headers = list(df.columns)
 
         # Find date columns (they contain date patterns like "January 29, 2026")
+        # Also handle typos like "Februrary" instead of "February"
         date_columns = []
         for i, col in enumerate(headers):
             col_lower = col.lower()
-            if any(month in col_lower for month in ['january', 'february', 'march', 'april', 'may', 'june',
+            if any(month in col_lower for month in ['january', 'february', 'februrary', 'march', 'april', 'may', 'june',
                                                       'july', 'august', 'september', 'october', 'november', 'december']):
                 date_columns.append((i, col))
 
@@ -208,6 +209,14 @@ class GoogleSheetsService:
 
         # Process each date block
         for date_idx, date_str in date_columns:
+            # Check if the date column is on Time or Cost column by looking at header row
+            # Some dates have: Time | Date(Cost) | Reg | FTD | CPFD
+            # Others have: Date(Time) | Cost | Reg | FTD | CPFD (off by 1)
+            header_val = str(df.iloc[0, date_idx]).strip().lower() if date_idx < len(df.columns) else ''
+
+            # If the date column header row says "Time", the actual Cost is at date_idx + 1
+            cost_offset = 1 if header_val == 'time' else 0
+
             for row_idx, row in df.iterrows():
                 if row_idx == 0:
                     continue
@@ -225,10 +234,12 @@ class GoogleSheetsService:
                     continue
 
                 try:
-                    cost_val = row.iloc[date_idx] if date_idx < len(row) else ''
-                    reg_val = row.iloc[date_idx + 1] if date_idx + 1 < len(row) else ''
-                    ftd_val = row.iloc[date_idx + 2] if date_idx + 2 < len(row) else ''
-                    cpfd_val = row.iloc[date_idx + 3] if date_idx + 3 < len(row) else ''
+                    # Apply offset if date header is on Time column instead of Cost column
+                    actual_cost_idx = date_idx + cost_offset
+                    cost_val = row.iloc[actual_cost_idx] if actual_cost_idx < len(row) else ''
+                    reg_val = row.iloc[actual_cost_idx + 1] if actual_cost_idx + 1 < len(row) else ''
+                    ftd_val = row.iloc[actual_cost_idx + 2] if actual_cost_idx + 2 < len(row) else ''
+                    cpfd_val = row.iloc[actual_cost_idx + 3] if actual_cost_idx + 3 < len(row) else ''
 
                     cost = self._parse_number(cost_val)
                     registrations = self._parse_number(reg_val)
